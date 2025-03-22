@@ -58,7 +58,7 @@ StreamSync takes a novel approach to this problem by:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/streamsync.git
+   git clone https://github.com/AjnasNB/streamsync.git
    cd streamsync
    ```
 
