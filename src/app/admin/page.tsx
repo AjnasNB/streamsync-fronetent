@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { uploadVideo, listVideos, startGlobalStream, getServerStatus } from '../../services/api';
+import { uploadVideo, listVideos, startGlobalStream, getServerStatus } from '../../../src/services/api';
 import Link from 'next/link';
 
 interface VideoMetadata {
@@ -13,8 +13,16 @@ interface VideoMetadata {
 interface VideoListItem {
   id: string;
   name: string;
-  duration: number;
-  path: string;
+  title?: string;
+  duration?: number;
+  path?: string;
+  width?: number;
+  height?: number;
+  codec?: string;
+  bitrate?: number;
+  hls_url?: string;
+  thumbnail_url?: string;
+  created_at?: number;
 }
 
 export default function AdminPage() {
@@ -28,6 +36,8 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStreamStarted, setIsStreamStarted] = useState(false);
   const [startStreamError, setStartStreamError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   useEffect(() => {
     // Fetch the current stream status
@@ -46,14 +56,10 @@ export default function AdminPage() {
   const fetchVideos = async () => {
     try {
       setIsLoading(true);
-      const { videos: videoData } = await listVideos();
+      const videoData = await listVideos();
       
-      const videoList = Object.entries(videoData).map(([id, metadata]) => ({
-        id,
-        ...metadata,
-      }));
-      
-      setVideos(videoList);
+      // The listVideos function now returns an array directly, not an object with a videos property
+      setVideos(videoData);
     } catch (err) {
       console.error('Error fetching videos:', err);
     } finally {
@@ -61,30 +67,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+      // Auto-fill the name field with the file name (without extension)
+      const fileName = event.target.files[0].name.split('.')[0];
+      setVideoName(fileName);
+    }
+  };
+
   const handleUploadVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!videoName || !videoDuration) {
-      setUploadError('Please fill in all required fields.');
+    if (!videoName || !selectedFile) {
+      setUploadError('Please provide a name and select a file.');
       return;
     }
-    
-    const videoMetadata: VideoMetadata = {
-      name: videoName,
-      duration: videoDuration,
-      path: videoPath || `${videoName.toLowerCase().replace(/\s+/g, '_')}.mp4`
-    };
     
     try {
       setIsUploading(true);
       setUploadError(null);
+      setUploadProgress(0);
       
-      await uploadVideo(videoMetadata);
+      // Use the file-based upload API
+      await uploadVideo(selectedFile, (progress) => setUploadProgress(progress), videoName);
       
       setUploadSuccess(true);
       setVideoName('');
       setVideoDuration(60);
       setVideoPath('');
+      setSelectedFile(null);
+      setUploadProgress(0);
       
       // Refetch the videos list
       fetchVideos();
@@ -155,6 +168,28 @@ export default function AdminPage() {
               </div>
               
               <div>
+                <label htmlFor="videoFile" className="block mb-1">Video File</label>
+                <input
+                  id="videoFile"
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+                />
+                {uploadProgress > 0 && (
+                  <div className="mt-2">
+                    <div className="bg-gray-600 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-blue-500 h-full" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1">Uploading: {uploadProgress}%</p>
+                  </div>
+                )}
+              </div>
+              
+              <div>
                 <label htmlFor="videoDuration" className="block mb-1">Duration (seconds)</label>
                 <input
                   id="videoDuration"
@@ -165,6 +200,7 @@ export default function AdminPage() {
                   className="w-full p-2 bg-gray-700 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
                   placeholder="Enter duration in seconds"
                 />
+                <p className="text-xs text-gray-400 mt-1">This will be auto-detected for uploaded files</p>
               </div>
               
               <div>
@@ -260,7 +296,7 @@ export default function AdminPage() {
                     <div key={video.id} className="p-3 bg-gray-700 rounded flex justify-between items-center">
                       <div>
                         <h3 className="font-medium">{video.name}</h3>
-                        <p className="text-sm text-gray-400">Duration: {formatDuration(video.duration)}</p>
+                        <p className="text-sm text-gray-400">Duration: {formatDuration(video.duration || 0)}</p>
                       </div>
                       <div>
                         <span className="text-xs bg-gray-600 px-2 py-1 rounded">ID: {video.id.slice(0, 6)}...</span>

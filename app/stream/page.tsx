@@ -7,6 +7,37 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { Video } from '../types/video';
 import './stream.css';
 
+// Type interface for server status response
+interface ServerStatus {
+  running: boolean;
+  stream_active?: boolean;
+  num_videos?: number;
+}
+
+// Define type for the API response
+interface VideoResponse {
+  id: string;
+  video_id?: string;  // Backend might return either id or video_id
+  title?: string;
+  name?: string;
+  position: number;
+  duration: number;
+  next_video?: string;
+  time_until_next?: number;
+  stream_start_time: number;
+  server_time: number;
+  sync_interval?: number;
+  force_sync?: boolean;
+  elapsed_total?: number;
+  playlist_duration?: number;
+  playlist_position?: number;
+  hls_enabled?: boolean;
+  hls_url?: string;
+  thumbnail_url?: string;
+  buffer_ahead_time?: number;
+  performance_mode?: 'smooth' | 'aggressive';
+}
+
 interface FetchState {
   isLoading: boolean;
   error: string | null;
@@ -99,20 +130,37 @@ export default function StreamPage() {
       fetchTimerRef.current = null;
     }
     
-    // Don't fetch if we don't have a userId
-    if (!userId) {
-      console.warn("Fetch attempted without userId");
-      setFetchState(prevState => ({
-        ...prevState,
-        isLoading: false,
-        error: "No user ID available"
-      }));
+    // Prevent multiple simultaneous fetches
+    if (fetchState.isLoading) {
+      console.log("Fetch already in progress, skipping");
       return;
     }
 
+    // Set loading state
+    setFetchState(prevState => ({
+      ...prevState,
+      isLoading: true,
+      error: null,
+      lastFetchTime: Date.now()
+    }));
+
     try {
+      // Check if we have a user ID
+      if (!userId) {
+        console.warn("Fetch attempted without userId");
+        setFetchState(prevState => ({
+          ...prevState,
+          isLoading: false,
+          error: "No user ID available"
+        }));
+        
+        // Try again in 2 seconds
+        fetchTimerRef.current = setTimeout(fetchCurrentVideo, 2000);
+        return;
+      }
+
       // First check if the server is running
-      const serverStatus = await getServerStatus();
+      const serverStatus: ServerStatus = await getServerStatus();
       console.log("Server status check:", serverStatus);
 
       if (!serverStatus.running) {
@@ -129,7 +177,7 @@ export default function StreamPage() {
       }
 
       console.log(`Fetching current video for user ${userId}`);
-      const response = await getCurrentVideo(userId);
+      const response: VideoResponse = await getCurrentVideo(userId);
       console.log("Video response:", response);
 
       // Validate video ID before proceeding
@@ -155,20 +203,6 @@ export default function StreamPage() {
       
       // Update server time offset for precise synchronization
       setServerTimeOffset(offset);
-
-      // Check if we have a video
-      if (response.error) {
-        console.warn(`API error: ${response.error}`);
-        setFetchState(prevState => ({
-          ...prevState,
-          isLoading: false,
-          error: response.error
-        }));
-        
-        // Try again soon
-        fetchTimerRef.current = setTimeout(fetchCurrentVideo, 2000);
-        return;
-      }
 
       // Debug log before updating state
       console.log("Updating currentVideo state with:", {
@@ -206,10 +240,10 @@ export default function StreamPage() {
           };
         }
         
-        // Otherwise return a completely new video object
-        return {
+        // Otherwise return a completely new video object with required fields
+        const newVideo: Video = {
           id: response.video_id || response.id, // Try both possible ID fields
-          title: response.title || response.name,
+          title: (response.title || response.name || "Untitled Video"), // Ensure title is never undefined
           position: response.position,
           duration: response.duration,
           nextVideo: response.next_video,
@@ -217,14 +251,17 @@ export default function StreamPage() {
           hlsEnabled: response.hls_enabled,
           hlsUrl: response.hls_url,
           thumbnailUrl: response.thumbnail_url,
-          streamStartTime: response.stream_start_time
+          streamStartTime: response.stream_start_time,
+          bufferAheadTime: response.buffer_ahead_time,
+          performanceMode: response.performance_mode as 'smooth' | 'aggressive' | undefined
         };
+        return newVideo;
       });
 
       // Update fetch state after we've processed the response
       setFetchState(prevState => ({
         ...prevState,
-        isLoading: false, // Set loading to false regardless 
+        isLoading: false, 
         error: null,
         lastFetchTime: Date.now()
       }));
