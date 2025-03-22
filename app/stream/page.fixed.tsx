@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getCurrentVideo, getServerStatus, registerUser, getVideoStreamUrl } from '../services/api';
 import VideoPlayer from '../components/VideoPlayer';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -300,7 +300,6 @@ export default function StreamPage() {
     }
   };
 
-  // Main render function
   return (
     <div className="stream-page">
       <div className="header">
@@ -311,39 +310,34 @@ export default function StreamPage() {
       {/* We always render the video container to prevent layout shifts */}
       <div className="video-container" style={{opacity: currentVideo && !fetchState.error ? 1 : 0}}>
         {currentVideo && !fetchState.error && (
-          // Log the rendering outside JSX
-          (() => {
-            console.log("Rendering VideoPlayer with currentVideo:", currentVideo);
-            return (
-              <>
-                <VideoPlayer
-                  key={`player-${currentVideo.id || "no-video"}`}
-                  src={
-                    currentVideo.id 
-                      ? getVideoStreamUrl(currentVideo.id, currentVideo.hlsEnabled, currentVideo.hlsUrl) 
-                      : null
-                  }
-                  title={currentVideo.title || "Untitled Video"}
-                  initialPosition={currentVideo.position || 0}
-                  duration={currentVideo.duration || 0}
-                  serverTimeOffset={serverTimeOffset}
-                  autoplay={true}
-                  muted={false}
-                  controls={true}
-                  bufferAheadTime={currentVideo.bufferAheadTime || 30}
-                  performanceMode={currentVideo.performanceMode || 'smooth'}
-                />
-                <div className="video-info">
-                  <h2>{currentVideo.title || "Untitled Video"}</h2>
-                  <p>Duration: {formatTime(currentVideo.duration || 0)}</p>
-                  {currentVideo.nextVideo && (
-                    <p>Next video in: {formatTime(currentVideo.timeUntilNext || 0)}</p>
-                  )}
-                  <p className="text-sm text-gray-400">Synchronized stream - seeking disabled</p>
-                </div>
-              </>
-            );
-          })()
+          <>
+            {console.log("Rendering VideoPlayer with currentVideo:", currentVideo)}
+            <VideoPlayer
+              key={`player-${currentVideo.id || "no-video"}`}
+              src={
+                currentVideo.id 
+                  ? getVideoStreamUrl(currentVideo.id, currentVideo.hlsEnabled, currentVideo.hlsUrl) 
+                  : null
+              }
+              title={currentVideo.title || "Untitled Video"}
+              initialPosition={currentVideo.position || 0}
+              duration={currentVideo.duration || 0}
+              serverTimeOffset={serverTimeOffset}
+              autoplay={true}
+              muted={false}
+              controls={true}
+              bufferAheadTime={currentVideo.bufferAheadTime || 30}
+              performanceMode={currentVideo.performanceMode || 'smooth'}
+            />
+            <div className="video-info">
+              <h2>{currentVideo.title || "Untitled Video"}</h2>
+              <p>Duration: {formatTime(currentVideo.duration || 0)}</p>
+              {currentVideo.nextVideo && (
+                <p>Next video in: {formatTime(currentVideo.timeUntilNext || 0)}</p>
+              )}
+              <p className="text-sm text-gray-400">Synchronized stream - seeking disabled</p>
+            </div>
+          </>
         )}
       </div>
 
@@ -356,4 +350,4 @@ export default function StreamPage() {
       )}
     </div>
   );
-}
+} 
