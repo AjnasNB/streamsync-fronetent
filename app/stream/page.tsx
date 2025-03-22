@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentVideo, getServerStatus, registerUser, getVideoStreamUrl } from '../services/api';

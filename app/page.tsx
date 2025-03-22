@@ -12,9 +12,25 @@ export default function LandingPage() {
           {APP_NAME}
         </h1>
         
-        <p className="text-lg md:text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-gray-300 mb-6 max-w-2xl mx-auto">
           A revolutionary platform for synchronized video streaming
         </p>
+        
+        <div className="mb-12">
+          <Link 
+            href="/presentation" 
+            className="inline-block px-8 py-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 font-bold text-lg transition-transform hover:scale-105 shadow-lg hover:shadow-cyan-500/30"
+          >
+            <span className="flex items-center">
+              <span className="mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </span>
+              View Interactive Presentation
+            </span>
+          </Link>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10 mb-16">
           <div className="bg-gray-800 rounded-lg p-6 shadow-lg transform transition-transform hover:scale-105">
