@@ -3,9 +3,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentVideo, getNextVideo } from '../services/api';
 
-export function useVideoSync(userId: string, onError?: (error: any) => void, liveMode: boolean = false) {
-  const [currentVideo, setCurrentVideo] = useState<any>(null);
-  const [nextVideo, setNextVideo] = useState<any>(null);
+// Add proper type definitions to avoid 'any'
+interface VideoData {
+  videoId: string;
+  title: string;
+  timestamp: number;
+  [key: string]: unknown; // Allow for additional properties
+}
+
+export function useVideoSync(userId: string, onError?: (error: Error) => void, liveMode = false) {
+  const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null);
+  const [nextVideo, setNextVideo] = useState<VideoData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch the current video for this user
@@ -31,7 +39,7 @@ export function useVideoSync(userId: string, onError?: (error: any) => void, liv
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching current video:", error);
-      if (onError) onError(error);
+      if (onError) onError(error instanceof Error ? error : new Error(String(error)));
       setIsLoading(false);
     }
   }, [userId, onError]);

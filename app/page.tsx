@@ -98,7 +98,7 @@ export default function LandingPage() {
             </div>
             <div>
               <div className="h-10 w-10 bg-purple-900 rounded-full mx-auto mb-2 flex items-center justify-center text-lg font-bold">2</div>
-              <p className="text-gray-300">Start the global stream when you're ready</p>
+              <p className="text-gray-300">Start the global stream when you&apos;re ready</p>
             </div>
             <div>
               <div className="h-10 w-10 bg-purple-900 rounded-full mx-auto mb-2 flex items-center justify-center text-lg font-bold">3</div>

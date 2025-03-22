@@ -23,18 +23,6 @@ if (typeof window !== 'undefined') {
   API_BASE_URL = process.env.API_URL || 'http://localhost:5000/api';
 }
 
-interface UserPreferences {
-  contentType?: string[];
-  language?: string;
-  quality?: string;
-}
-
-interface VideoMetadata {
-  name: string;
-  duration: number;
-  path: string;
-}
-
 export interface Video {
   id: string;
   name: string;
@@ -47,15 +35,6 @@ export interface Video {
   bitrate?: number;
   hls_url?: string;
   thumbnail_url?: string;
-}
-
-// API error handling helper
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `API error: ${response.status}`);
-  }
-  return response.json() as Promise<T>;
 }
 
 // User Registration and Management
@@ -133,7 +112,7 @@ export const uploadVideo = async (
   });
 };
 
-export const getAllVideos = async (): Promise<any[]> => {
+export const getAllVideos = async (): Promise<Video[]> => {
   try {
     console.log("Fetching all videos");
     const response = await fetch(`${API_BASE_URL}/list-videos`);
@@ -378,7 +357,7 @@ export const getCurrentVideo = async (userId: string) => {
   }
 };
 
-export const getNextVideo = async (userId: string): Promise<any> => {
+export const getNextVideo = async (userId: string): Promise<Video | null> => {
   try {
     console.log(`Fetching next video for user: ${userId}`);
     const response = await fetch(`${API_BASE_URL}/get-next-video/${userId}`);

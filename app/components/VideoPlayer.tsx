@@ -47,7 +47,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const lastTimeUpdateRef = useRef<number>(0); // Track time updates
   const frameDropCountRef = useRef<number>(0); // Track frame drops
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeking, setIsSeeking] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number>(0);
@@ -71,7 +70,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     // First synchronize immediately to get in sync from the start
     // But use RAF and precise timing to prevent frame drops
-    const currentServerTime = Date.now() + (serverTimeOffset || 0);
     const initialExpectedPosition = initialPosition;
     
     if (Math.abs(video.currentTime - initialExpectedPosition) > 0.5) {
@@ -102,7 +100,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Aggressive mode: larger thresholds to reduce stuttering
       const smallDriftThreshold = performanceMode === 'aggressive' ? 1.0 : 0.7;
       const mediumDriftThreshold = performanceMode === 'aggressive' ? 2.5 : 1.8;
-      const largeDriftThreshold = performanceMode === 'aggressive' ? 5.0 : 3.5;
       
       // Calculate the time between adjustments - longer intervals mean fewer frame drops
       const minTimeBetweenAdjustments = performanceMode === 'aggressive' ? 5000 : 3500;
@@ -614,7 +611,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     document.addEventListener('click', preventSeekingViaProgress, true);
     
     // Disable seeking using timeupdate event
-    const preventUserSeeking = (e: Event) => {
+    const preventUserSeeking = () => {
       if (video.seeking && !isSeeking) {
         console.log("User attempted to seek. Enforcing synchronization.");
         
@@ -716,14 +713,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         syncIntervalRef.current = null;
       }
     };
-  }, [src, initialPosition, shouldAutoplay, muted, controls, serverTimeOffset, bufferAheadTime, performanceMode]);
+  }, [src, initialPosition, shouldAutoplay, muted, controls, serverTimeOffset, bufferAheadTime, performanceMode, error, isSeeking, lastSyncTime, setupSyncInterval]);
   
   // Handle play/pause events
   const handlePlay = () => {
-    setIsPlaying(true);
+    // Don't need to update isPlaying since it's no longer used
   };
   
-  const handlePause = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+  const handlePause = () => {
     if (!isSeeking) {
       console.log('User paused video. Restarting playback to maintain sync.');
       setError('Pausing is disabled to keep all viewers synchronized');
@@ -738,7 +735,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }, 100);
       }
     }
-    setIsPlaying(false);
   };
   
   const handleError = (e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -748,184 +744,46 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     console.error(`Video error: Code ${errorCode}, Message: ${errorMsg}`);
     setError(`Failed to play video: ${errorMsg}`);
-    setIsLoading(false);
   };
   
   return (
-    <div className={`relative w-full ${className}`}>
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 z-10">
+    <div className={`video-player-container relative overflow-hidden ${className}`}>
+      {error && (
+        <div className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 z-10 text-center">
+          {error}
+        </div>
+      )}
+      
+      {!src && (
+        <div className="flex items-center justify-center h-full bg-gray-900 text-gray-500">
+          <p>No video source available</p>
+        </div>
+      )}
+      
+      {isLoading && src && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
+
+      <video
+        ref={videoRef}
+        className={`w-full h-full object-contain ${syncStatus === 'adjusting' ? 'sync-adjusting' : ''}`}
+        muted={muted}
+        controls={controls}
+        preload="auto"
+        playsInline
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onError={handleError}
+        onEnded={onEnded}
+      />
       
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
-          <div className="text-white text-center p-4">
-            <p className="text-red-400">{error}</p>
-            {!error.includes("seeking is disabled") && !error.includes("Pausing is disabled") && (
-              <button
-                onClick={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  
-                  // Create a new video element instead of reusing the current one
-                  // This prevents the "play interrupted by removal" error
-                  if (videoRef.current && src) {
-                    // Clean up existing HLS instance if needed
-                    if (hlsRef.current) {
-                      hlsRef.current.destroy();
-                      hlsRef.current = null;
-                    }
-                    
-                    // Small delay to let the UI update before trying to reload
-                    setTimeout(() => {
-                      if (!videoRef.current) return;
-                      
-                      // Force a clean state by removing and recreating video internals
-                      videoRef.current.removeAttribute('src');
-                      videoRef.current.load();
-                      
-                      // Setup new video source with proper delay
-                      setTimeout(() => {
-                        if (!videoRef.current || !src) return;
-                        
-                        // For HLS streams
-                        if (src.includes('.m3u8') || src.includes('/hls/')) {
-                          if (Hls.isSupported()) {
-                            const hls = new Hls({
-                              debug: false,
-                              enableWorker: true,
-                              lowLatencyMode: true,
-                              backBufferLength: 90,
-                              maxBufferLength: bufferAheadTime || 30,
-                              maxMaxBufferLength: (bufferAheadTime || 30) * 2,
-                              maxBufferSize: 60 * 1000 * 1000,
-                              fragLoadingMaxRetry: 8,
-                              fragLoadingRetryDelay: 500,
-                              maxStarvationDelay: 4
-                            });
-                            
-                            // Store new HLS instance
-                            hlsRef.current = hls;
-                            
-                            // First attach, then load source with a delay
-                            hls.attachMedia(videoRef.current);
-                            
-                            // Small delay to prevent race condition
-                            setTimeout(() => {
-                              if (hlsRef.current && src) {
-                                hlsRef.current.loadSource(src);
-                                
-                                // Wait for manifest to be parsed before playing
-                                hlsRef.current.once(Hls.Events.MANIFEST_PARSED, () => {
-                                  // Now it's safe to play
-                                  setTimeout(() => {
-                                    if (videoRef.current) {
-                                      // Use a safe play method that handles promise correctly
-                                      const playPromise = videoRef.current.play();
-                                      if (playPromise !== undefined) {
-                                        playPromise
-                                          .then(() => {
-                                            setIsPlaying(true);
-                                            setIsLoading(false);
-                                          })
-                                          .catch(e => {
-                                            console.error('Play failed:', e);
-                                            setIsLoading(false);
-                                          });
-                                      } else {
-                                        setIsLoading(false);
-                                      }
-                                    }
-                                  }, 100);
-                                });
-                              }
-                            }, 50);
-                          } else {
-                            // Native HLS support (Safari)
-                            videoRef.current.src = src;
-                            videoRef.current.load();
-                            setTimeout(() => {
-                              if (videoRef.current) {
-                                videoRef.current.play()
-                                  .then(() => {
-                                    setIsPlaying(true);
-                                    setIsLoading(false);
-                                  })
-                                  .catch(e => {
-                                    console.error('Play failed:', e);
-                                    setIsLoading(false);
-                                  });
-                              }
-                            }, 100);
-                          }
-                        } else {
-                          // Regular video
-                          videoRef.current.src = src;
-                          videoRef.current.load();
-                          setTimeout(() => {
-                            if (videoRef.current) {
-                              videoRef.current.play()
-                                .then(() => {
-                                  setIsPlaying(true);
-                                  setIsLoading(false);
-                                })
-                                .catch(e => {
-                                  console.error('Play failed:', e);
-                                  setIsLoading(false);
-                                });
-                            }
-                          }, 100);
-                        }
-                      }, 50);
-                    }, 50);
-                  } else {
-                    setIsLoading(false);
-                  }
-                }}
-                className="mt-2 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
-              >
-                Try Again
-              </button>
-            )}
-          </div>
+      {syncStatus === 'adjusting' && (
+        <div className="absolute bottom-2 right-2 bg-yellow-500 text-xs text-white px-2 py-1 rounded">
+          Syncing...
         </div>
       )}
-      
-      {/* Fix empty src attribute warning by properly handling null/undefined src */}
-      {!src ? (
-        <div className="w-full aspect-video bg-gray-900 flex items-center justify-center text-gray-400">
-          No video available
-        </div>
-      ) : (
-        <video
-          ref={videoRef}
-          className={`w-full h-auto ${liveMode ? 'bg-black' : ''}`}
-          controls={controls}
-          muted={muted}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onEnded={onEnded}
-          onError={handleError}
-          onCanPlay={() => setIsLoading(false)}
-          playsInline
-          disablePictureInPicture
-          preload="auto"
-          crossOrigin="anonymous"
-        >
-          {/* Don't include any track elements if there's no title - prevents empty src warning */}
-          {title && title.trim() !== '' && (
-            <track kind="captions" label={title} />
-          )}
-          Your browser does not support the video tag.
-        </video>
-      )}
-      
-      {/* Synchronization indicator */}
-      <div className={`absolute bottom-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded m-1 ${syncStatus === 'adjusting' ? 'text-yellow-300' : 'text-green-300'}`}>
-        {syncStatus === 'synced' ? 'Synchronized' : 'Adjusting sync...'}
-      </div>
     </div>
   );
 };
