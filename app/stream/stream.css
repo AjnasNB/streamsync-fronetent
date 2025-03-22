@@ -1,0 +1,183 @@
+.stream-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #111;
+  color: white;
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.user-id {
+  font-size: 0.8rem;
+  color: #aaa;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  width: 100%;
+}
+
+.loading-text {
+  margin-top: 1rem;
+  color: #ccc;
+}
+
+.video-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  /* Add transition to reduce flickering */
+  transition: opacity 0.3s ease;
+  opacity: 1;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.video-info {
+  padding: 1rem;
+  background-color: #222;
+  border-radius: 0 0 0.5rem 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.video-info h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.video-info p {
+  color: #ddd;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+/* Transition animation for the video player to reduce flicker */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Optimize video rendering */
+video {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-font-smoothing: subpixel-antialiased;
+  /* Prevent black screen flashes */
+  background-color: #000;
+  transition: none !important;
+  /* Safari-specific optimizations */
+  -webkit-backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+}
+
+/* Prevent layout shifts */
+.video-container video {
+  background-color: #000;
+  aspect-ratio: 16 / 9;
+  min-height: 300px;
+  width: 100%;
+  /* Prevent flickering on seek */
+  transform: translate3d(0, 0, 0);
+}
+
+/* Force hardware acceleration for smoother playback */
+.video-container video {
+  transform: translate3d(0, 0, 0);
+  /* Safari needs more aggressive hardware acceleration hints */
+  -webkit-transform-style: preserve-3d;
+  /* Reduce black screens and flickering by forcing compositing */
+  filter: brightness(1.01);
+  /* Avoid black edge artifacts */
+  image-rendering: high-quality;
+}
+
+/* Add transition to UI elements to avoid harsh changes */
+.video-info, .loading-container {
+  transition: opacity 0.3s ease;
+}
+
+/* Create a backdrop layer to prevent flashing between frames */
+.video-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #000;
+  z-index: -1;
+}
+
+/* Create a smoother overlay for loading states */
+.video-container .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  transition: opacity 0.2s ease;
+}
+
+/* Add paint hints to optimize rendering performance */
+.text-sm.text-gray-400 {
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+  contain: content;
+}
+
+.text-sm.text-gray-400:hover {
+  opacity: 1;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .stream-page {
+    padding: 1rem;
+  }
+  
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .video-container video {
+    /* Mobile devices might need more aggressive optimizations */
+    transform: translate3d(0, 0, 0) scale(1.001);
+    will-change: transform;
+  }
+}
+
+/* Force Chrome to use hardware acceleration */
+@supports (-webkit-appearance:none) {
+  .video-container video {
+    transform: translate3d(0, 0, 0) translateZ(0);
+    perspective: 1000;
+    backface-visibility: hidden;
+  }
+} 
